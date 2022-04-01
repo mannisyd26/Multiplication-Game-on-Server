@@ -7,11 +7,12 @@ import random
 connection = sqlite3.connect('users.db')
 stmt = "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
 cursor = connection.cursor()
-result = cursor.execute(stmt)
-r = result.fetchall()
-if (r == []):
+check = cursor.execute(stmt)
+r = check.fetchall()
+if r == []:
     exp = 'CREATE TABLE users (username,password)'
     connection.execute(exp)
+result = ''
 
 
 def application(environ, start_response):
@@ -28,10 +29,10 @@ def application(environ, start_response):
             start_response('200 OK', headers)
             return ['Sorry, username {} is taken'.format(un).encode()]
         else:
-            connection.execute('INSERT INTO users VALUES (?, ?)', [un, pw])
+            connection.execute('INSERT INTO users VALUES (?, ?)', (un, pw))
             connection.commit()
             start_response('200 OK', headers)
-            return ['Congratulations, username {} been successfully registered <a href="/account">Account</a>'.format(un).encode()]
+            return ['Registered  <a href="/account">Account</a>'.encode()]
 
     elif path == '/login' and un and pw:
         user = cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', [un, pw]).fetchall()
@@ -41,7 +42,7 @@ def application(environ, start_response):
             return ['User {} successfully logged in. <a href="/account">Account</a>'.format(un).encode()]
         else:
             start_response('200 OK', headers)
-            return ['Incorrect username or password'.encode()]
+            return ['Incorrect username or password <a href="/account">Account</a>'.encode()]
 
     elif path == '/logout':
         headers.append(('Set-Cookie', 'session=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'))
@@ -56,7 +57,6 @@ def application(environ, start_response):
 
         cookies = http.cookies.SimpleCookie()
         cookies.load(environ['HTTP_COOKIE'])
-
         if 'session' not in cookies:
             return ['Not logged in <a href="/">Login</a>'.encode()]
 
@@ -70,23 +70,19 @@ def application(environ, start_response):
 
             if 'HTTP_COOKIE' in environ:
                 cookies = http.cookies.SimpleCookie()
-                cookies.load(environ['HTTP_COOKIE'])  # add this cookie to a variable
+                cookies.load(environ['HTTP_COOKIE'])
                 if 'score' in cookies:
                     correct = int(cookies['score'].value.split(':')[0])
                     wrong = int(cookies['score'].value.split(':')[1])
 
             page = '<!DOCTYPE html><html><head><title>Multiply with Score</title></head><body>'
-
             if 'factor1' in params and 'factor2' in params and 'answer' in params:
-                rightPage = '<p style="background-color: lightgreen">Good Job! {} x {} = {}! </p>'.format(int(params['answer'][0]), int(params['factor1'][0]), int(params['factor2'][0]))
-                wrongPage = '<p style = "background color: red"> Oops, try again! {} x {} = {}!</p>'.format(int(params['factor1'][0]), int(params['factor2'][0]), int(params['answer'][0]))
-
-                if int(params['factor1'][0] * int(params['factor2'][0])) == int(params['answer'][0]):
+                if int(params['answer'][0]) == int(params['factor1'][0]) * int(params['factor2'][0]):
                     correct += 1
-                    res = rightPage
+                    res = '<p style="background-color: lightgreen">Correct!</p>'
                 else:
                     wrong += 1
-                    res = wrongPage
+                    res = '<p style="background-color: red">Wrong!</p>'
                 page += res
 
             elif 'reset' in params:
@@ -97,31 +93,31 @@ def application(environ, start_response):
 
             f1 = random.randrange(10) + 1
             f2 = random.randrange(10) + 1
+            cor_ans = f1 * f2
 
-            rightAnswer = f1 * f2
-            answer = [rightAnswer]
-            answers = 0
-            page = page + '<h1>What is {} x {}?</h1>'.format(f1, f2)
+            page += '<h1>What is {} x {}</h1>'.format(f1, f2)
+            num1 = cor_ans
+            num2 = cor_ans
+            num3 = cor_ans
+            # prevent possibility of duplicate answer choices
+            while num1 == cor_ans or num2 == cor_ans or num3 == cor_ans:
+                num1 = random.randrange(121)
+                num2 = random.randrange(121)
+                num3 = random.randrange(121)
+            choices = [f1 * f2, num1, num2, num3]
 
-            while answers <= 3:
-                for answers in answer:
-                    answer.append(random.randint(0, 10))
-                    answers += 1
+            random.shuffle(choices)
 
-            random.shuffle(answer)
-
-            page = page + '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
-                un, pw, f1, f2, answer[0], 'A', answer[0])
-            page = page + '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
-                un, pw, f1, f2, answer[1], 'B', answer[1])
-            page = page + '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
-                un, pw, f1, f2, answer[2], 'C', answer[2])
-            page = page + '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
-                un, pw, f1, f2, answer[3], 'D', answer[3])
-
-
-            # hyperlink = '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(un, pw, f1, f2, answer[2], 'A', answer[3])
-
+            hyperlink0 = '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
+                un, pw, f1, f2, choices[0], 'A', choices[0])
+            hyperlink1 = '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
+                un, pw, f1, f2, choices[1], 'B', choices[1])
+            hyperlink2 = '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
+                un, pw, f1, f2, choices[2], 'C', choices[2])
+            hyperlink3 = '<a href="/account?username={}&amp;password={}&amp;factor1={}&amp;factor2={}&amp;answer={}">{}: {}</a><br>'.format(
+                un, pw, f1, f2, choices[3], 'D', choices[3])
+            allhyperlinks = hyperlink0 + hyperlink1 + hyperlink2 + hyperlink3
+            page += allhyperlinks
             page += '''<h2>Score</h2>
             Correct: {}<br>
             Wrong: {}<br>
@@ -133,29 +129,23 @@ def application(environ, start_response):
             return ['Not logged in. <a href="/">Login</a>'.encode()]
 
     elif path == '/':
-        start_response('200 OK', headers)
+        page = '''
+         <form action="/login" style="background-color:lightblue">
+             <h1>Login</h1>
+             Username <input type="text" name="username"><br>
+             Password <input type="password" name="password"><br>
+             <input type="submit" value="Log in">
+         </form>
+         <form action="/register" style="background-color:lightblue">
+             <h1>Register</h1>
+             Username <input type="text" name="username"><br>
+             Password <input type="password" name="password"><br>
+             <input type="submit" value="Register">
+         </form>'''
 
-        form = '''<!DOCTYPE html>
-            <html>
-            <head><title>Login or Register</title></head>
-            <body>
-            <h1>Login</h1>
-            <form action="/login">
-                Username <input type="text" name="username"><br>
-                Password <input type="password" name="password"><br>
-                <input type="submit">
-            </form>
-            <h1> Register </h1>
-            <form action="/register">
-                Username <input type="text" name="username"><br>
-                Password <input type="password" name="password"><br>
-                <input type="submit">
-            </form>
-            <hr>
-            </body></html>'''
+        start_response('200 OK', [('Content-Type', 'text/html; charset=utf-8')])
 
-        return [form.encode()]
-
+        return [page.encode()]
     else:
         start_response('404 Not Found', headers)
         return ['Status 404: Resource not found'.encode()]
